@@ -15,246 +15,317 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 
-private val Navy = Color(0xFF10233F)
-private val Gold = Color(0xFFD7A94B)
-private val Page = Color(0xFFF4F6FA)
+private val TaxiNavy = Color(0xFF10233F)
+private val TaxiGold = Color(0xFFD7A94B)
+private val TaxiPage = Color(0xFFF4F6FA)
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
             MaterialTheme {
-                Surface(Modifier.fillMaxSize(), color = Page) { PassengerHome() }
+                Surface(Modifier.fillMaxSize(), color = TaxiPage) {
+                    TaxiRoot()
+                }
             }
         }
     }
 }
 
 @Composable
-private fun PassengerHome() {
-    val context = LocalContext.current
-    val draft = remember { context.getSharedPreferences("ride_draft", Context.MODE_PRIVATE) }
-    val cities = mapOf(
-        "خراسان رضوی" to listOf("مشهد", "نیشابور", "سبزوار", "تربت‌حیدریه", "قوچان"),
-        "خراسان شمالی" to listOf("بجنورد", "شیروان", "اسفراین", "آشخانه"),
-        "خراسان جنوبی" to listOf("بیرجند", "قائن", "طبس", "فردوس", "نهبندان")
-    )
-    var province by remember { mutableStateOf(draft.getString("province", "خراسان جنوبی") ?: "خراسان جنوبی") }
-    var city by remember { mutableStateOf(draft.getString("city", "بیرجند") ?: "بیرجند") }
-    var origin by remember { mutableStateOf(draft.getString("origin", "") ?: "") }
-    var destination by remember { mutableStateOf(draft.getString("destination", "") ?: "") }
-    var originCoordinates by remember { mutableStateOf(draft.getString("origin_coordinates", "") ?: "") }
-    var destinationCoordinates by remember { mutableStateOf(draft.getString("destination_coordinates", "") ?: "") }
-    var locationMessage by remember { mutableStateOf("برای GPS، موقعیت مکانی گوشی را روشن کنید؛ یا نقطه را روی نقشه انتخاب کنید.") }
-    var targetField by remember { mutableStateOf("origin") }
-    var showMapPicker by remember { mutableStateOf(false) }
+private fun TaxiRoot() {
     var showBusinessTools by remember { mutableStateOf(false) }
-    var showTripReview by remember { mutableStateOf(false) }
-    var tripValidationMessage by remember { mutableStateOf("") }
-
-    fun validCoordinates(value: String): Boolean {
-        if (value.isBlank()) return false
-        val parts = value.split(",")
-        if (parts.size != 2) return false
-        val lat = parts[0].trim().toDoubleOrNull() ?: return false
-        val lon = parts[1].trim().toDoubleOrNull() ?: return false
-        return lat in -90.0..90.0 && lon in -180.0..180.0
-    }
-
     if (showBusinessTools) {
         BackHandler { showBusinessTools = false }
         BusinessToolsScreen(onBack = { showBusinessTools = false })
-        return
+    } else {
+        RideMapScreen(onOpenBusinessTools = { showBusinessTools = true })
     }
+}
 
-    if (showMapPicker) {
-        BackHandler { showMapPicker = false }
-        MapPickerScreen(
-            title = if (targetField == "origin") "انتخاب مبدأ روی نقشه" else "انتخاب مقصد روی نقشه",
-            initialCoordinates = if (targetField == "origin") originCoordinates else destinationCoordinates,
-            onBack = { showMapPicker = false },
-            onConfirm = { coordinates ->
-                if (targetField == "origin") {
+@Composable
+private fun RideMapScreen(onOpenBusinessTools: () -> Unit) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val prefs = remember { context.getSharedPreferences("ride_draft", Context.MODE_PRIVATE) }
+    var activeField by remember { mutableStateOf("origin") }
+    var origin by remember { mutableStateOf(prefs.getString("origin", "") ?: "") }
+    var destination by remember { mutableStateOf(prefs.getString("destination", "") ?: "") }
+    var originCoordinates by remember { mutableStateOf(prefs.getString("origin_coordinates", "") ?: "") }
+    var destinationCoordinates by remember { mutableStateOf(prefs.getString("destination_coordinates", "") ?: "") }
+    var status by remember { mutableStateOf("مبدأ را روی نقشه انتخاب کنید یا موقعیت فعلی را بزنید.") }
+    var showReview by remember { mutableStateOf(false) }
+
+    Box(Modifier.fillMaxSize()) {
+        RideMapCanvas(
+            originCoordinates = originCoordinates,
+            destinationCoordinates = destinationCoordinates,
+            onMapPointSelected = { coordinates ->
+                if (activeField == "origin") {
                     originCoordinates = coordinates
-                    draft.edit().putString("origin_coordinates", coordinates).apply()
+                    prefs.edit().putString("origin_coordinates", coordinates).apply()
+                    status = "مبدأ روی نقشه ثبت شد؛ حالا مقصد را انتخاب کنید."
+                    activeField = "destination"
                 } else {
                     destinationCoordinates = coordinates
-                    draft.edit().putString("destination_coordinates", coordinates).apply()
+                    prefs.edit().putString("destination_coordinates", coordinates).apply()
+                    status = "مقصد روی نقشه ثبت شد."
                 }
-                locationMessage = "مختصات از روی نقشه ثبت و در گوشی ذخیره شد."
-                showMapPicker = false
+            },
+            onGpsLocation = { coordinates ->
+                originCoordinates = coordinates
+                prefs.edit().putString("origin_coordinates", coordinates).apply()
+                status = "موقعیت فعلی شما به‌عنوان مبدأ ثبت شد."
+            },
+            onStatus = { status = it }
+        )
+
+        Row(
+            Modifier.align(Alignment.TopCenter).fillMaxWidth()
+                .background(TaxiNavy.copy(alpha = 0.96f))
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column {
+                Text("KHORASAN TAXI", color = TaxiGold, style = MaterialTheme.typography.labelLarge)
+                Text("تاکسی اینترنتی خراسان", color = Color.White, style = MaterialTheme.typography.titleMedium)
+            }
+            TextButton(onClick = onOpenBusinessTools) {
+                Text("پرداخت و پشتیبانی", color = Color.White)
+            }
+        }
+
+        Column(
+            Modifier.align(Alignment.BottomCenter).fillMaxWidth()
+                .background(Color.White.copy(alpha = 0.98f), RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text("درخواست خودرو", color = TaxiNavy, style = MaterialTheme.typography.titleLarge)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilterChip(
+                    selected = activeField == "origin",
+                    onClick = { activeField = "origin"; status = "روی نقشه لمس کنید تا مبدأ مشخص شود." },
+                    label = { Text("انتخاب مبدأ") }
+                )
+                FilterChip(
+                    selected = activeField == "destination",
+                    onClick = { activeField = "destination"; status = "روی نقشه لمس کنید تا مقصد مشخص شود." },
+                    label = { Text("انتخاب مقصد") }
+                )
+                Spacer(Modifier.weight(1f))
+                TextButton(onClick = { activeField = "origin" }) {
+                    Text("GPS من", color = TaxiNavy)
+                }
+            }
+            OutlinedTextField(
+                value = origin,
+                onValueChange = { origin = it; prefs.edit().putString("origin", it).apply() },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                label = { Text("نشانی مبدأ (اختیاری؛ شهر یا روستا)") },
+                placeholder = { Text("مثلاً روستای ...، خیابان ...") }
+            )
+            OutlinedTextField(
+                value = destination,
+                onValueChange = { destination = it; prefs.edit().putString("destination", it).apply() },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                label = { Text("نشانی مقصد (اختیاری)") },
+                placeholder = { Text("نام مقصد یا نشانی دقیق") }
+            )
+            Text(
+                "مبدأ: ${if (originCoordinates.isBlank()) "روی نقشه انتخاب نشده" else originCoordinates}   •   مقصد: ${if (destinationCoordinates.isBlank()) "انتخاب نشده" else destinationCoordinates}",
+                color = TaxiNavy,
+                style = MaterialTheme.typography.bodySmall
+            )
+            Text(status, color = Color(0xFF586579), style = MaterialTheme.typography.bodySmall)
+            Button(
+                onClick = { showReview = true },
+                enabled = originCoordinates.isNotBlank() && destinationCoordinates.isNotBlank(),
+                modifier = Modifier.fillMaxWidth().height(52.dp),
+                shape = RoundedCornerShape(14.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = TaxiNavy)
+            ) {
+                Text("درخواست خودرو", style = MaterialTheme.typography.titleMedium)
+            }
+            Text(
+                "انتخاب نقشه و GPS فعال است؛ اعزام راننده پس از اتصال سرور عملیاتی می‌شود.",
+                color = Color.Gray,
+                style = MaterialTheme.typography.labelSmall
+            )
+        }
+    }
+
+    if (showReview) {
+        AlertDialog(
+            onDismissRequest = { showReview = false },
+            title = { Text("بررسی مبدأ و مقصد") },
+            text = {
+                Text("مبدأ: $originCoordinates\n$origin\n\nمقصد: $destinationCoordinates\n$destination\n\nاین اطلاعات در گوشی ذخیره شده است. برای ارسال درخواست واقعی، سرور و سامانه اعزام راننده هنوز باید متصل شوند.")
+            },
+            confirmButton = {
+                TextButton(onClick = { showReview = false }) { Text("متوجه شدم") }
             }
         )
-        return
     }
+}
 
-    fun applyLocation(location: Location) {
-        val coordinates = String.format(Locale.US, "%.6f, %.6f", location.latitude, location.longitude)
-        if (targetField == "origin") {
-            originCoordinates = coordinates
-            draft.edit().putString("origin_coordinates", coordinates).apply()
-        } else {
-            destinationCoordinates = coordinates
-            draft.edit().putString("destination_coordinates", coordinates).apply()
-        }
-        val time = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(location.time))
-        locationMessage = "موقعیت GPS ثبت شد • دقت حدود ${location.accuracy.toInt()} متر • $time"
-    }
-
-    fun locate() {
-        val manager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
-        try {
-            val gpsEnabled = manager.isProviderEnabled(LocationManager.GPS_PROVIDER)
-            val last = manager.getLastKnownLocation(LocationManager.GPS_PROVIDER)
-            if (last != null) applyLocation(last)
-            if (!gpsEnabled) {
-                locationMessage = "GPS خاموش است. آن را از تنظیمات سریع گوشی روشن کنید."
-                return
-            }
-            val listener = object : LocationListener {
-                override fun onLocationChanged(location: Location) {
-                    manager.removeUpdates(this)
-                    applyLocation(location)
-                }
-                @Deprecated("Deprecated by Android")
-                override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) = Unit
-                override fun onProviderEnabled(provider: String) = Unit
-                override fun onProviderDisabled(provider: String) = Unit
-            }
-            manager.requestSingleUpdate(LocationManager.GPS_PROVIDER, listener, Looper.getMainLooper())
-            locationMessage = if (last == null) {
-                "در حال دریافت موقعیت ماهواره‌ای GPS؛ ممکن است در فضای بسته کمی طول بکشد."
-            } else {
-                "موقعیت قبلی نمایش داده شد؛ در حال به‌روزرسانی با GPS..."
-            }
-        } catch (_: SecurityException) {
-            locationMessage = "اجازه دسترسی به موقعیت مکانی داده نشده است."
-        } catch (_: Exception) {
-            locationMessage = "دریافت GPS ممکن نشد. GPS را روشن کنید و در فضای باز دوباره امتحان کنید."
-        }
-    }
+@Composable
+private fun RideMapCanvas(
+    originCoordinates: String,
+    destinationCoordinates: String,
+    onMapPointSelected: (String) -> Unit,
+    onGpsLocation: (String) -> Unit,
+    onStatus: (String) -> Unit
+) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    var nativeMap by remember { mutableStateOf<org.maplibre.android.maps.MapLibreMap?>(null) }
+    var gpsPending by remember { mutableStateOf(false) }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { grants ->
-        if (grants[Manifest.permission.ACCESS_FINE_LOCATION] == true) locate()
-        else locationMessage = "برای GPS دقیق و ثبت مختصات، دسترسی مکان‌یابی دقیق را انتخاب کنید."
+        if (grants[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
+            grants[Manifest.permission.ACCESS_COARSE_LOCATION] == true) {
+            gpsPending = true
+        } else {
+            onStatus("برای نمایش موقعیت فعلی، اجازه دسترسی به مکان را فعال کنید.")
+        }
     }
 
-    fun requestLocation(field: String) {
-        targetField = field
-        val fineGranted = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
-        if (fineGranted) locate()
-        else permissionLauncher.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
+    val mapView = remember(context) {
+        org.maplibre.android.MapLibre.getInstance(context.applicationContext)
+        org.maplibre.android.maps.MapView(context).also { it.onCreate(null) }
     }
 
-    Column(
-        Modifier.fillMaxSize().background(Page).verticalScroll(rememberScrollState()).padding(20.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
-    ) {
-        Column {
-            Text("KHORASAN TAXI", color = Gold, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-            Text("تاکسی اینترنتی خراسان", color = Navy, fontSize = 25.sp, fontWeight = FontWeight.ExtraBold)
-            Text("سفر هوشمند در سه استان خراسان", color = Color.DarkGray)
-        }
-
-        Card(colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(20.dp)) {
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("استان و شهر", color = Navy, fontWeight = FontWeight.Bold)
-                cities.keys.forEach { item ->
-                    if (province == item) {
-                        Button(onClick = { province = item }, modifier = Modifier.fillMaxWidth(),
-                            colors = ButtonDefaults.buttonColors(containerColor = Navy)) { Text(item) }
-                    } else {
-                        OutlinedButton(onClick = { province = item; city = cities[item]!!.first(); draft.edit().putString("province", item).putString("city", city).apply() }, modifier = Modifier.fillMaxWidth()) { Text(item, color = Navy) }
-                    }
-                }
-                Text("شهر یا محدوده نزدیک روستا", color = Navy, fontWeight = FontWeight.Bold)
-                cities[province].orEmpty().forEach { item ->
-                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        RadioButton(selected = city == item, onClick = { city = item; draft.edit().putString("city", item).apply() })
-                        Text(item, color = Navy)
-                    }
-                }
-                Text("منطقه انتخابی: $city • $province", color = Color.DarkGray)
+    DisposableEffect(mapView, lifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            when (event) {
+                androidx.lifecycle.Lifecycle.Event.ON_START -> mapView.onStart()
+                androidx.lifecycle.Lifecycle.Event.ON_RESUME -> mapView.onResume()
+                androidx.lifecycle.Lifecycle.Event.ON_PAUSE -> mapView.onPause()
+                androidx.lifecycle.Lifecycle.Event.ON_STOP -> mapView.onStop()
+                else -> Unit
             }
         }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        if (lifecycleOwner.lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.STARTED)) mapView.onStart()
+        if (lifecycleOwner.lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED)) mapView.onResume()
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            mapView.onPause()
+            mapView.onStop()
+            mapView.onDestroy()
+        }
+    }
 
-        Card(colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(20.dp)) {
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("مبدأ سفر", color = Navy, fontWeight = FontWeight.Bold)
-                OutlinedTextField(value = origin, onValueChange = { origin = it; draft.edit().putString("origin", it).apply() }, modifier = Modifier.fillMaxWidth(),
-                    label = { Text("نام روستا، محله یا نشانی مبدأ") },
-                    placeholder = { Text("مثلاً روستای ...، بخش ...، شهرستان ...") })
-                OutlinedButton(onClick = { requestLocation("origin") }, modifier = Modifier.fillMaxWidth()) { Text("ثبت موقعیت فعلی برای مبدأ (GPS)") }
-                OutlinedButton(onClick = { targetField = "origin"; showMapPicker = true }, modifier = Modifier.fillMaxWidth()) { Text("انتخاب مبدأ روی نقشه") }
-                OutlinedTextField(value = originCoordinates, onValueChange = { originCoordinates = it; draft.edit().putString("origin_coordinates", it).apply() }, modifier = Modifier.fillMaxWidth(),
-                    label = { Text("مختصات مبدأ (عرض، طول جغرافیایی)") },
-                    placeholder = { Text("32.000000, 59.000000") }, singleLine = true)
-                HorizontalDivider()
-                Text("مقصد سفر", color = Navy, fontWeight = FontWeight.Bold)
-                OutlinedTextField(value = destination, onValueChange = { destination = it; draft.edit().putString("destination", it).apply() }, modifier = Modifier.fillMaxWidth(),
-                    label = { Text("نام شهر، روستا یا نشانی مقصد") },
-                    placeholder = { Text("نام مقصد را وارد کنید") })
-                OutlinedButton(onClick = { requestLocation("destination") }, modifier = Modifier.fillMaxWidth()) { Text("ثبت موقعیت فعلی برای مقصد (GPS)") }
-                OutlinedButton(onClick = { targetField = "destination"; showMapPicker = true }, modifier = Modifier.fillMaxWidth()) { Text("انتخاب مقصد روی نقشه") }
-                OutlinedTextField(value = destinationCoordinates, onValueChange = { destinationCoordinates = it; draft.edit().putString("destination_coordinates", it).apply() }, modifier = Modifier.fillMaxWidth(),
-                    label = { Text("مختصات مقصد (عرض، طول جغرافیایی)") },
-                    placeholder = { Text("32.000000, 59.000000") }, singleLine = true)
-                Text(locationMessage, color = Color(0xFF526174), fontSize = 12.sp)
+    LaunchedEffect(gpsPending) {
+        if (!gpsPending) return@LaunchedEffect
+        gpsPending = false
+        val fine = androidx.core.content.ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        val coarse = androidx.core.content.ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        val provider = if (fine) LocationManager.GPS_PROVIDER else LocationManager.NETWORK_PROVIDER
+        try {
+            val manager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
+            if (!manager.isProviderEnabled(provider)) {
+                onStatus(if (provider == LocationManager.GPS_PROVIDER) "GPS گوشی خاموش است؛ آن را روشن کنید." else "مکان‌یابی گوشی در دسترس نیست.")
+                return@LaunchedEffect
+            }
+            val last = if (fine || coarse) manager.getLastKnownLocation(provider) else null
+            fun deliver(location: Location) {
+                val coords = String.format(java.util.Locale.US, "%.6f, %.6f", location.latitude, location.longitude)
+                onGpsLocation(coords)
+                nativeMap?.animateCamera(
+                    org.maplibre.android.camera.CameraUpdateFactory.newLatLngZoom(
+                        org.maplibre.android.geometry.LatLng(location.latitude, location.longitude), 16.0
+                    )
+                )
+            }
+            if (last != null) deliver(last)
+            val listener = object : android.location.LocationListener {
+                override fun onLocationChanged(location: Location) {
+                    deliver(location)
+                    manager.removeUpdates(this)
+                }
+                @Deprecated("Deprecated by Android")
+                override fun onStatusChanged(providerName: String?, statusCode: Int, extras: Bundle?) = Unit
+                override fun onProviderEnabled(providerName: String) = Unit
+                override fun onProviderDisabled(providerName: String) = Unit
+            }
+            manager.requestSingleUpdate(provider, listener, Looper.getMainLooper())
+            onStatus(if (last == null) "در حال دریافت موقعیت GPS..." else "موقعیت قبلی پیدا شد؛ در حال تازه‌سازی GPS...")
+        } catch (_: SecurityException) {
+            onStatus("دسترسی GPS داده نشده است.")
+        } catch (_: Exception) {
+            onStatus("موقعیت دریافت نشد؛ GPS را روشن کنید و دوباره بزنید.")
+        }
+    }
+
+    Box(Modifier.fillMaxSize()) {
+        androidx.compose.ui.viewinterop.AndroidView(
+            factory = { mapView },
+            modifier = Modifier.fillMaxSize()
+        )
+        LaunchedEffect(mapView) {
+            mapView.getMapAsync { map ->
+                nativeMap = map
+                val birjand = org.maplibre.android.geometry.LatLng(32.8597, 59.2211)
+                map.setStyle(org.maplibre.android.maps.Style.Builder().fromUri("https://tiles.openfreemap.org/styles/liberty")) {
+                    map.cameraPosition = org.maplibre.android.camera.CameraPosition.Builder()
+                        .target(birjand).zoom(12.0).build()
+                    map.addOnMapClickListener { point ->
+                        onMapPointSelected(String.format(java.util.Locale.US, "%.6f, %.6f", point.latitude, point.longitude))
+                        true
+                    }
+                    onStatus("نقشه آماده است؛ برای انتخاب نقطه، روی نقشه لمس کنید.")
+                }
             }
         }
-
-        OutlinedButton(
-            onClick = { showBusinessTools = true },
-            modifier = Modifier.fillMaxWidth()
-        ) { Text("پرداخت، سهم ۲۰٪ و پشتیبانی هوشمند") }
-
-        Button(
+        LaunchedEffect(nativeMap, originCoordinates, destinationCoordinates) {
+            val map = nativeMap ?: return@LaunchedEffect
+            val originPoint = parseRideCoordinates(originCoordinates)
+            val destinationPoint = parseRideCoordinates(destinationCoordinates)
+            map.clear()
+            if (originPoint != null) {
+                map.addMarker(org.maplibre.android.annotations.MarkerOptions().position(originPoint).title("مبدأ"))
+            }
+            if (destinationPoint != null) {
+                map.addMarker(org.maplibre.android.annotations.MarkerOptions().position(destinationPoint).title("مقصد"))
+            }
+        }
+        FloatingActionButton(
             onClick = {
-                val originReady = origin.isNotBlank() || validCoordinates(originCoordinates)
-                val destinationReady = destination.isNotBlank() || validCoordinates(destinationCoordinates)
-                tripValidationMessage = when {
-                    !originReady -> "برای مبدأ، نشانی یا مختصات معتبر وارد کنید."
-                    !destinationReady -> "برای مقصد، نشانی یا مختصات معتبر وارد کنید."
-                    originCoordinates.isNotBlank() && !validCoordinates(originCoordinates) -> "مختصات مبدأ معتبر نیست؛ نمونه: 32.859700, 59.221100"
-                    destinationCoordinates.isNotBlank() && !validCoordinates(destinationCoordinates) -> "مختصات مقصد معتبر نیست؛ نمونه: 32.859700, 59.221100"
-                    else -> ""
-                }
-                if (tripValidationMessage.isBlank()) showTripReview = true
+                val fine = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+                val coarse = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+                if (fine || coarse) gpsPending = true
+                else permissionLauncher.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
             },
-            modifier = Modifier.fillMaxWidth(),
-            colors = ButtonDefaults.buttonColors(containerColor = Navy)
-        ) { Text("بررسی و تأیید اطلاعات سفر") }
-        if (tripValidationMessage.isNotBlank()) {
-            Text(tripValidationMessage, color = Color(0xFFB3261E), fontSize = 13.sp)
+            modifier = Modifier.align(Alignment.CenterEnd).padding(end = 16.dp, bottom = 300.dp),
+            containerColor = Color.White,
+            contentColor = TaxiNavy
+        ) {
+            Text("⌖", style = MaterialTheme.typography.headlineMedium)
         }
-
-        Card(colors = CardDefaults.cardColors(containerColor = Navy), shape = RoundedCornerShape(20.dp)) {
-            Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("مناسب شهر و روستا", color = Color.White, fontWeight = FontWeight.Bold)
-                Text("نشانی، GPS و مختصات روی نقشه در پیش‌نویس گوشی ذخیره می‌شوند. نقشه فعلی برای بارگذاری اولیه به اینترنت نیاز دارد.", color = Color.White.copy(alpha = 0.9f))
-            }
-        }
-        Text("نسخه توسعه • ثبت سفر و اعزام راننده هنوز به سرور متصل نیست.", color = Color.Gray, fontSize = 12.sp,
-            modifier = Modifier.align(Alignment.CenterHorizontally))
-        Spacer(Modifier.height(12.dp))
     }
+}
+
+private fun parseRideCoordinates(value: String): org.maplibre.android.geometry.LatLng? {
+    if (value.isBlank()) return null
+    val parts = value.split(",")
+    if (parts.size != 2) return null
+    val lat = parts[0].trim().toDoubleOrNull() ?: return null
+    val lon = parts[1].trim().toDoubleOrNull() ?: return null
+    if (lat !in -90.0..90.0 || lon !in -180.0..180.0) return null
+    return org.maplibre.android.geometry.LatLng(lat, lon)
 }
