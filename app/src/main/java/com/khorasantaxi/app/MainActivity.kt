@@ -65,6 +65,17 @@ private fun PassengerHome() {
     var locationMessage by remember { mutableStateOf("برای GPS، موقعیت مکانی گوشی را روشن کنید؛ یا نقطه را روی نقشه انتخاب کنید.") }
     var targetField by remember { mutableStateOf("origin") }
     var showMapPicker by remember { mutableStateOf(false) }
+    var showTripReview by remember { mutableStateOf(false) }
+    var tripValidationMessage by remember { mutableStateOf("") }
+
+    fun validCoordinates(value: String): Boolean {
+        if (value.isBlank()) return false
+        val parts = value.split(",")
+        if (parts.size != 2) return false
+        val lat = parts[0].trim().toDoubleOrNull() ?: return false
+        val lon = parts[1].trim().toDoubleOrNull() ?: return false
+        return lat in -90.0..90.0 && lon in -180.0..180.0
+    }
 
     if (showMapPicker) {
         BackHandler { showMapPicker = false }
@@ -202,6 +213,26 @@ private fun PassengerHome() {
                     placeholder = { Text("32.000000, 59.000000") }, singleLine = true)
                 Text(locationMessage, color = Color(0xFF526174), fontSize = 12.sp)
             }
+        }
+
+        Button(
+            onClick = {
+                val originReady = origin.isNotBlank() || validCoordinates(originCoordinates)
+                val destinationReady = destination.isNotBlank() || validCoordinates(destinationCoordinates)
+                tripValidationMessage = when {
+                    !originReady -> "برای مبدأ، نشانی یا مختصات معتبر وارد کنید."
+                    !destinationReady -> "برای مقصد، نشانی یا مختصات معتبر وارد کنید."
+                    originCoordinates.isNotBlank() && !validCoordinates(originCoordinates) -> "مختصات مبدأ معتبر نیست؛ نمونه: 32.859700, 59.221100"
+                    destinationCoordinates.isNotBlank() && !validCoordinates(destinationCoordinates) -> "مختصات مقصد معتبر نیست؛ نمونه: 32.859700, 59.221100"
+                    else -> ""
+                }
+                if (tripValidationMessage.isBlank()) showTripReview = true
+            },
+            modifier = Modifier.fillMaxWidth(),
+            colors = ButtonDefaults.buttonColors(containerColor = Navy)
+        ) { Text("بررسی و تأیید اطلاعات سفر") }
+        if (tripValidationMessage.isNotBlank()) {
+            Text(tripValidationMessage, color = Color(0xFFB3261E), fontSize = 13.sp)
         }
 
         Card(colors = CardDefaults.cardColors(containerColor = Navy), shape = RoundedCornerShape(20.dp)) {
