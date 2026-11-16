@@ -192,6 +192,7 @@ private fun RideMapCanvas(
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
     var nativeMap by remember { mutableStateOf<org.maplibre.android.maps.MapLibreMap?>(null) }
     var gpsPending by remember { mutableStateOf(false) }
+    var currentGpsCoordinates by remember { mutableStateOf("") }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -245,6 +246,7 @@ private fun RideMapCanvas(
             val last = if (fine || coarse) manager.getLastKnownLocation(provider) else null
             fun deliver(location: Location) {
                 val coords = String.format(java.util.Locale.US, "%.6f, %.6f", location.latitude, location.longitude)
+                currentGpsCoordinates = coords
                 onGpsLocation(coords)
                 nativeMap?.animateCamera(
                     org.maplibre.android.camera.CameraUpdateFactory.newLatLngZoom(
@@ -292,7 +294,7 @@ private fun RideMapCanvas(
                 }
             }
         }
-        LaunchedEffect(nativeMap, originCoordinates, destinationCoordinates) {
+        LaunchedEffect(nativeMap, originCoordinates, destinationCoordinates, currentGpsCoordinates) {
             val map = nativeMap ?: return@LaunchedEffect
             val originPoint = parseRideCoordinates(originCoordinates)
             val destinationPoint = parseRideCoordinates(destinationCoordinates)
