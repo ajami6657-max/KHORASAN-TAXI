@@ -65,6 +65,7 @@ private fun PassengerHome() {
     var locationMessage by remember { mutableStateOf("برای GPS، موقعیت مکانی گوشی را روشن کنید؛ یا نقطه را روی نقشه انتخاب کنید.") }
     var targetField by remember { mutableStateOf("origin") }
     var showMapPicker by remember { mutableStateOf(false) }
+    var showBusinessTools by remember { mutableStateOf(false) }
     var showTripReview by remember { mutableStateOf(false) }
     var tripValidationMessage by remember { mutableStateOf("") }
 
@@ -75,6 +76,12 @@ private fun PassengerHome() {
         val lat = parts[0].trim().toDoubleOrNull() ?: return false
         val lon = parts[1].trim().toDoubleOrNull() ?: return false
         return lat in -90.0..90.0 && lon in -180.0..180.0
+    }
+
+    if (showBusinessTools) {
+        BackHandler { showBusinessTools = false }
+        BusinessToolsScreen(onBack = { showBusinessTools = false })
+        return
     }
 
     if (showMapPicker) {
@@ -214,6 +221,11 @@ private fun PassengerHome() {
                 Text(locationMessage, color = Color(0xFF526174), fontSize = 12.sp)
             }
         }
+
+        OutlinedButton(
+            onClick = { showBusinessTools = true },
+            modifier = Modifier.fillMaxWidth()
+        ) { Text("پرداخت، سهم ۲۰٪ و پشتیبانی هوشمند") }
 
         Button(
             onClick = {
