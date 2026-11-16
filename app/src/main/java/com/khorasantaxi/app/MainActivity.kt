@@ -9,6 +9,7 @@ import android.location.LocationManager
 import android.os.Bundle
 import android.os.Looper
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -61,8 +62,30 @@ private fun PassengerHome() {
     var destination by remember { mutableStateOf(draft.getString("destination", "") ?: "") }
     var originCoordinates by remember { mutableStateOf(draft.getString("origin_coordinates", "") ?: "") }
     var destinationCoordinates by remember { mutableStateOf(draft.getString("destination_coordinates", "") ?: "") }
-    var locationMessage by remember { mutableStateOf("برای ثبت GPS، موقعیت مکانی گوشی را روشن کنید.") }
+    var locationMessage by remember { mutableStateOf("برای GPS، موقعیت مکانی گوشی را روشن کنید؛ یا نقطه را روی نقشه انتخاب کنید.") }
     var targetField by remember { mutableStateOf("origin") }
+    var showMapPicker by remember { mutableStateOf(false) }
+
+    if (showMapPicker) {
+        BackHandler { showMapPicker = false }
+        MapPickerScreen(
+            title = if (targetField == "origin") "انتخاب مبدأ روی نقشه" else "انتخاب مقصد روی نقشه",
+            initialCoordinates = if (targetField == "origin") originCoordinates else destinationCoordinates,
+            onBack = { showMapPicker = false },
+            onConfirm = { coordinates ->
+                if (targetField == "origin") {
+                    originCoordinates = coordinates
+                    draft.edit().putString("origin_coordinates", coordinates).apply()
+                } else {
+                    destinationCoordinates = coordinates
+                    draft.edit().putString("destination_coordinates", coordinates).apply()
+                }
+                locationMessage = "مختصات از روی نقشه ثبت و در گوشی ذخیره شد."
+                showMapPicker = false
+            }
+        )
+        return
+    }
 
     fun applyLocation(location: Location) {
         val coordinates = String.format(Locale.US, "%.6f, %.6f", location.latitude, location.longitude)
@@ -120,7 +143,6 @@ private fun PassengerHome() {
     fun requestLocation(field: String) {
         targetField = field
         val fineGranted = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
-        val coarseGranted = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
         if (fineGranted) locate()
         else permissionLauncher.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
     }
@@ -140,10 +162,10 @@ private fun PassengerHome() {
                 Text("استان و شهر", color = Navy, fontWeight = FontWeight.Bold)
                 cities.keys.forEach { item ->
                     if (province == item) {
-                        Button(onClick = { province = item; city = cities[item]!!.first(); draft.edit().putString("province", item).putString("city", city).apply() }, modifier = Modifier.fillMaxWidth(),
+                        Button(onClick = { province = item }, modifier = Modifier.fillMaxWidth(),
                             colors = ButtonDefaults.buttonColors(containerColor = Navy)) { Text(item) }
                     } else {
-                        OutlinedButton(onClick = { province = item; city = cities[item]!!.first() }, modifier = Modifier.fillMaxWidth()) { Text(item, color = Navy) }
+                        OutlinedButton(onClick = { province = item; city = cities[item]!!.first(); draft.edit().putString("province", item).putString("city", city).apply() }, modifier = Modifier.fillMaxWidth()) { Text(item, color = Navy) }
                     }
                 }
                 Text("شهر یا محدوده نزدیک روستا", color = Navy, fontWeight = FontWeight.Bold)
@@ -163,9 +185,8 @@ private fun PassengerHome() {
                 OutlinedTextField(value = origin, onValueChange = { origin = it; draft.edit().putString("origin", it).apply() }, modifier = Modifier.fillMaxWidth(),
                     label = { Text("نام روستا، محله یا نشانی مبدأ") },
                     placeholder = { Text("مثلاً روستای ...، بخش ...، شهرستان ...") })
-                OutlinedButton(onClick = { requestLocation("origin") }, modifier = Modifier.fillMaxWidth()) {
-                    Text("ثبت موقعیت فعلی برای مبدأ (GPS)")
-                }
+                OutlinedButton(onClick = { requestLocation("origin") }, modifier = Modifier.fillMaxWidth()) { Text("ثبت موقعیت فعلی برای مبدأ (GPS)") }
+                OutlinedButton(onClick = { targetField = "origin"; showMapPicker = true }, modifier = Modifier.fillMaxWidth()) { Text("انتخاب مبدأ روی نقشه") }
                 OutlinedTextField(value = originCoordinates, onValueChange = { originCoordinates = it; draft.edit().putString("origin_coordinates", it).apply() }, modifier = Modifier.fillMaxWidth(),
                     label = { Text("مختصات مبدأ (عرض، طول جغرافیایی)") },
                     placeholder = { Text("32.000000, 59.000000") }, singleLine = true)
@@ -174,9 +195,8 @@ private fun PassengerHome() {
                 OutlinedTextField(value = destination, onValueChange = { destination = it; draft.edit().putString("destination", it).apply() }, modifier = Modifier.fillMaxWidth(),
                     label = { Text("نام شهر، روستا یا نشانی مقصد") },
                     placeholder = { Text("نام مقصد را وارد کنید") })
-                OutlinedButton(onClick = { requestLocation("destination") }, modifier = Modifier.fillMaxWidth()) {
-                    Text("ثبت موقعیت فعلی برای مقصد (GPS)")
-                }
+                OutlinedButton(onClick = { requestLocation("destination") }, modifier = Modifier.fillMaxWidth()) { Text("ثبت موقعیت فعلی برای مقصد (GPS)") }
+                OutlinedButton(onClick = { targetField = "destination"; showMapPicker = true }, modifier = Modifier.fillMaxWidth()) { Text("انتخاب مقصد روی نقشه") }
                 OutlinedTextField(value = destinationCoordinates, onValueChange = { destinationCoordinates = it; draft.edit().putString("destination_coordinates", it).apply() }, modifier = Modifier.fillMaxWidth(),
                     label = { Text("مختصات مقصد (عرض، طول جغرافیایی)") },
                     placeholder = { Text("32.000000, 59.000000") }, singleLine = true)
@@ -187,7 +207,7 @@ private fun PassengerHome() {
         Card(colors = CardDefaults.cardColors(containerColor = Navy), shape = RoundedCornerShape(20.dp)) {
             Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("مناسب شهر و روستا", color = Color.White, fontWeight = FontWeight.Bold)
-                Text("ثبت مختصات GPS و نوشتن نام روستا بدون نیاز به اینترنت انجام می‌شود. برای نمایش نقشه آفلاین، باید نقشه منطقه از قبل دانلود شده باشد.", color = Color.White.copy(alpha = 0.9f))
+                Text("نشانی، GPS و مختصات روی نقشه در پیش‌نویس گوشی ذخیره می‌شوند. نقشه فعلی برای بارگذاری اولیه به اینترنت نیاز دارد.", color = Color.White.copy(alpha = 0.9f))
             }
         }
         Text("نسخه توسعه • ثبت سفر و اعزام راننده هنوز به سرور متصل نیست.", color = Color.Gray, fontSize = 12.sp,
