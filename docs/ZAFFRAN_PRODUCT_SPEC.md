@@ -67,18 +67,31 @@ The existing repository started as a Kotlin/Jetpack Compose Android prototype. M
 - Support, complaints and safety incidents
 - AI assistant gateway and audit log
 
-## Payment and commission model
+## Payment, commission and driver settlement
+
+**Selected payment provider:** Asan Pardakht (AP / آپ), subject to merchant onboarding, contract approval, official integration documentation and sandbox testing. Keep the payment adapter replaceable so another provider can be added without rewriting trip or ledger logic.
 
 The server is the source of truth for every amount. Never accept a client-calculated fare or a client-declared successful payment.
 
 For each completed and paid trip:
-1. Verify the payment provider's signed callback/server-side status.
-2. Record the gross amount once using an idempotency key.
-3. Create immutable ledger entries for provider payable, platform commission, and any separately disclosed support/service fee.
-4. Request split settlement only if the contracted payment provider explicitly supports the required beneficiary settlement flow.
-5. Reconcile provider settlement reports and show pending/paid/failed states.
+1. Verify the payment provider's signed callback and/or server-side transaction status.
+2. Record the gross amount once using a unique idempotency key.
+3. Create immutable, auditable ledger entries for driver payable, platform commission, and any separately disclosed support/service fee.
+4. Make the driver's available balance visible only after the trip and payment are verified and any applicable risk/adjustment hold is applied.
+5. Reconcile provider settlement reports and show pending, processing, paid, rejected and failed states.
 
-Do not promise instantaneous bank/card transfer. Actual timing depends on the payment provider, acquiring contract, bank rails and compliance checks. Never hold customer funds or operate a wallet without confirming the applicable legal and provider requirements.
+### Two driver payout modes
+
+- **Instant payout (لحظه‌ای):** the driver can request a payout from their eligible available balance at any time. The backend submits it to the contracted payout/bank-transfer service and displays the actual provider status. This mode is enabled only after AP or a separately contracted bank-transfer provider confirms an approved API, eligible destination banks/IBANs, limits, fees, operating hours and final settlement semantics. A request accepted by an API is not the same as money received.
+- **Daily payout (روزانه):** eligible unpaid driver balances are grouped into a daily payout batch. Admin-configurable cutoff time, minimum amount, holidays, retry rules and reconciliation are required. The UI must show the expected schedule as an estimate, not a guarantee.
+
+Drivers can select a preferred mode; admins can suspend or override it for risk, compliance or operational reasons. Both modes share the same ledger and payout state machine. Use unique payout IDs, idempotency keys, signed callbacks/server-side verification, duplicate prevention, audit logs, bank/IBAN ownership checks, and reconciliation. Failed or returned transfers must restore the payable balance exactly once.
+
+### Provider and legal boundary
+
+AP is the selected card-payment gateway, but no verified public evidence in this project establishes that its standard gateway contract supports split settlement to each driver or 24/7 instant bank payouts. Treat those as separate capabilities requiring written confirmation and a suitable contract/API. If AP only settles merchant receipts to the platform, driver disbursements need an explicitly approved payout service and legally reviewed operating model. Do not promise instant arrival or launch a stored-value wallet/escrow model without legal and provider approval.
+
+Never hold customer funds or operate a wallet without confirming the applicable legal, payment-provider and regulatory requirements.
 
 ## Identity, safety and privacy
 
@@ -123,8 +136,8 @@ Do not promise instantaneous bank/card transfer. Actual timing depends on the pa
 - [ ] Shared rides, only after seat/route and safety rules are validated.
 
 ### Milestone 4 — Money and AI
-- [ ] Payment provider integration after local contract and sandbox testing.
-- [ ] Ledger, commission, reconciliation and settlement.
+- [ ] AP payment adapter after merchant onboarding, official documentation and sandbox testing.
+- [ ] Double-entry ledger, commission, reconciliation, instant-payout request flow and daily payout batching; activate real transfers only after provider/bank approval.
 - [ ] Persian AI assistant with a verified Iran-accessible deployment.
 - [ ] AI-assisted document triage with human final approval.
 
