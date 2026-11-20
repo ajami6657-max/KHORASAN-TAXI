@@ -1,0 +1,42 @@
+name: Zaffran Taxi Flutter Android
+
+on:
+  push:
+    branches: [ "zaffran-taxi-foundation" ]
+    paths:
+      - "mobile_src/**"
+      - ".github/workflows/zaffran-flutter-android.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - name: Generate Android and iOS platform folders
+        run: flutter create --platforms=android,ios --org ir.zaffran.taxi --project-name zaffran_taxi build/zaffran_mobile
+      - name: Install Zaffran app source
+        run: |
+          cp mobile_src/pubspec.yaml build/zaffran_mobile/pubspec.yaml
+          cp mobile_src/lib/main.dart build/zaffran_mobile/lib/main.dart
+      - name: Resolve dependencies
+        working-directory: build/zaffran_mobile
+        run: flutter pub get
+      - name: Analyze Flutter app
+        working-directory: build/zaffran_mobile
+        run: flutter analyze
+      - name: Build debug APK
+        working-directory: build/zaffran_mobile
+        run: flutter build apk --debug
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: zaffran-taxi-android-debug
+          path: build/zaffran_mobile/build/app/outputs/flutter-apk/app-debug.apk
+          if-no-files-found: error
