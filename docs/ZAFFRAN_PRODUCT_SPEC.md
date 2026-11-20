@@ -67,6 +67,16 @@ The existing repository started as a Kotlin/Jetpack Compose Android prototype. M
 - Support, complaints and safety incidents
 - AI assistant gateway and audit log
 
+## Wallets, payment, commission and driver settlement
+
+Provide an in-app wallet for passengers and drivers, backed by the same immutable double-entry ledger. The balance is calculated from posted ledger entries; no client or mutable balance field is authoritative.
+
+Passenger features: balance, gateway top-up, trip payment, eligible trip refunds, transaction history and receipts. Driver features: verified trip earnings, commission breakdown, available/pending/held amounts, payout preference, payout requests and history. Promotional credits, if introduced, must be tracked separately from cash-funded balance with clear terms.
+
+Top-ups are credited only after server-to-server payment verification. Trip payments and refunds are posted atomically and idempotently. Pending gateway transactions are never spendable. Distinguish ledger credit from actual bank settlement.
+
+The initial wallet is an internal accounting/credit feature. Do not offer peer-to-peer transfers, unrestricted cash-out, deposits/interest, or represent it as a bank account or stored-value product until the legal model, required permissions and provider contracts are confirmed.
+
 ## Payment, commission and driver settlement
 
 **Selected payment provider:** Asan Pardakht (AP / آپ), subject to merchant onboarding, contract approval, official integration documentation and sandbox testing. Keep the payment adapter replaceable so another provider can be added without rewriting trip or ledger logic.
@@ -137,7 +147,7 @@ Never hold customer funds or operate a wallet without confirming the applicable 
 
 ### Milestone 4 — Money and AI
 - [ ] AP payment adapter after merchant onboarding, official documentation and sandbox testing.
-- [ ] Double-entry ledger, commission, reconciliation, instant-payout request flow and daily payout batching; activate real transfers only after provider/bank approval.
+- [ ] Double-entry ledger, passenger/driver wallet views, verified top-ups, trip charges/refunds, commission, reconciliation, instant-payout requests and daily payout batching; activate real transfers only after provider/bank approval.
 - [ ] Persian AI assistant with a verified Iran-accessible deployment.
 - [ ] AI-assisted document triage with human final approval.
 
