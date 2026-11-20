@@ -112,6 +112,10 @@ Never hold customer funds or operate a wallet without confirming the applicable 
 - Collect only necessary data; define retention and deletion rules before launch.
 - Women-focused service requires operational safety procedures, incident escalation and provider availability controls.
 
+## AI-first operations
+
+Adopt the AI Operations Plan in `docs/AI_OPERATIONS_PLAN.md`. AI should handle repetitive support, onboarding guidance, operational summaries, dispatch assistance and analytics wherever safe. Keep backend rules authoritative, use permission-checked tools, and require human approval for high-impact identity, safety and financial actions. Provide deterministic fallback when the model or network is unavailable.
+
 ## AI assistant
 
 - Use a replaceable model adapter so the system is not tied to one foreign API.
