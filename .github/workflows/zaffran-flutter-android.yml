@@ -33,6 +33,9 @@ jobs:
         run: |
           flutter pub get
           dart run flutter_launcher_icons
+      - name: Remove generated template test
+        working-directory: build/zaffran_mobile
+        run: rm -rf test
       - name: Analyze Flutter app
         working-directory: build/zaffran_mobile
         run: flutter analyze
