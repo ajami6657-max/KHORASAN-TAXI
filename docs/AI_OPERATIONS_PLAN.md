@@ -44,3 +44,15 @@ Track containment rate, first-response time, resolution time, booking completion
 
 ## Explicit limitations
 AI can make mistakes. It must not be the sole authority for identity, safety, legal eligibility, fare calculation, money movement, refunds, wallet balances, or payment settlement. All critical business rules are enforced by backend code and database constraints, not by prompts.
+
+## Compact central AI supervisor model
+
+Use one compact Persian-capable model behind a single AI gateway, with narrowly scoped tools for passenger support, driver onboarding, document intake, trip operations and finance explanations. Keep the model replaceable and benchmark a small quantized model on the intended server before selecting it; do not assume a phone-sized model can safely run all production workflows.
+
+The model is the coordinator, not the database or financial authority:
+- Identity: collect/check document completeness, OCR fields and flag mismatches; a human supervisor approves or rejects identity and driver activation.
+- Finance: read verified ledger/payment/payout states, explain commissions and prepare reconciliation exceptions; backend rules calculate every amount. Refunds, wallet adjustments and bank transfers require an authorized approval and provider confirmation.
+- Operations: answer routine questions, classify support tickets, draft replies, remind users and recommend eligible drivers; the backend enforces permissions and trip rules.
+- Supervision: provide a dedicated admin dashboard with pending identity reviews, payment/payout exceptions, safety escalations, AI actions, confidence/reason summaries and an immutable audit trail.
+
+Every AI action must include actor, role, tool, target record, timestamp, input/output summary, policy decision and approval reference. Use least-privilege service accounts, short-lived credentials, rate limits, redaction and deterministic fallbacks. Never give the model unrestricted database, banking, identity-provider or production-shell access.
