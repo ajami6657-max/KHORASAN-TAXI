@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'map_picker_page.dart';
 
 void main() => runApp(const ZaffranTaxiApp());
 
@@ -37,6 +38,8 @@ class _PassengerHomePageState extends State<PassengerHomePage> {
   final destinationController = TextEditingController();
   String selectedService = 'تاکسی';
   String tripMode = 'یک‌طرفه';
+  String originCoordinates = '';
+  String destinationCoordinates = '';
 
   final services = const [
     ('تاکسی', Icons.local_taxi_rounded),
@@ -130,6 +133,33 @@ class _PassengerHomePageState extends State<PassengerHomePage> {
             _addressField(originController, 'مبدأ؛ نام روستا، شهر یا نشانی', Icons.my_location),
             const SizedBox(height: 10),
             _addressField(destinationController, 'مقصد؛ نام روستا، شهر یا نشانی', Icons.location_on_outlined),
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              icon: const Icon(Icons.map_outlined),
+              label: const Text('انتخاب مبدأ روی نقشه'),
+              onPressed: () async {
+                final point = await Navigator.push<String>(context, MaterialPageRoute(
+                  builder: (_) => MapPickerPage(title: 'انتخاب مبدأ', initialPoint: originCoordinates),
+                ));
+                if (point != null && mounted) setState(() {
+                  originCoordinates = point;
+                  originController.text = 'موقعیت نقشه: $point';
+                });
+              },
+            ),
+            OutlinedButton.icon(
+              icon: const Icon(Icons.map_outlined),
+              label: const Text('انتخاب مقصد روی نقشه'),
+              onPressed: () async {
+                final point = await Navigator.push<String>(context, MaterialPageRoute(
+                  builder: (_) => MapPickerPage(title: 'انتخاب مقصد', initialPoint: destinationCoordinates),
+                ));
+                if (point != null && mounted) setState(() {
+                  destinationCoordinates = point;
+                  destinationController.text = 'موقعیت نقشه: $point';
+                });
+              },
+            ),
             const SizedBox(height: 14),
             SegmentedButton<String>(
               segments: const [
@@ -205,7 +235,7 @@ class _PassengerHomePageState extends State<PassengerHomePage> {
   }
 
   void _requestRide() {
-    if (originController.text.trim().isEmpty || destinationController.text.trim().isEmpty) {
+    if ((originController.text.trim().isEmpty && originCoordinates.isEmpty) || (destinationController.text.trim().isEmpty && destinationCoordinates.isEmpty)) {
       _showInfo('تکمیل مسیر', 'لطفاً مبدأ و مقصد را وارد کنید.');
       return;
     }
