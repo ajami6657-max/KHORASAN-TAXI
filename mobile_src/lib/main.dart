@@ -1,4 +1,7 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'map_picker_page.dart';
 
 void main() => runApp(const ZaffranTaxiApp());
@@ -234,15 +237,38 @@ class _PassengerHomePageState extends State<PassengerHomePage> {
     );
   }
 
-  void _requestRide() {
+  Future<void> _requestRide() async {
     if ((originController.text.trim().isEmpty && originCoordinates.isEmpty) || (destinationController.text.trim().isEmpty && destinationCoordinates.isEmpty)) {
       _showInfo('تکمیل مسیر', 'لطفاً مبدأ و مقصد را وارد کنید.');
       return;
     }
-    _showInfo(
-      'درخواست ثبت آزمایشی',
-      'سرویس: $selectedService\nنوع سفر: $tripMode\nمبدأ: ${originController.text}\nمقصد: ${destinationController.text}\n\nبرای ارسال درخواست واقعی، اتصال سرور هنوز لازم است.',
-    );
+
+    final request = <String, dynamic>{
+      'id': DateTime.now().microsecondsSinceEpoch.toString(),
+      'service': selectedService,
+      'tripMode': tripMode,
+      'origin': originController.text.trim(),
+      'originCoordinates': originCoordinates,
+      'destination': destinationController.text.trim(),
+      'destinationCoordinates': destinationCoordinates,
+      'createdAt': DateTime.now().toUtc().toIso8601String(),
+      'status': 'local_draft',
+    };
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final saved = prefs.getStringList('zaffran_pending_ride_drafts') ?? <String>[];
+      saved.add(jsonEncode(request));
+      await prefs.setStringList('zaffran_pending_ride_drafts', saved);
+      if (!mounted) return;
+      _showInfo(
+        'پیش‌نویس سفر روی گوشی ذخیره شد',
+        'درخواست شما فعلاً فقط روی همین گوشی ذخیره شده است و هنوز برای راننده ارسال نشده. پس از اتصال سرور داخلی، امکان همگام‌سازی امن اضافه می‌شود. تا دریافت تأیید سرور، سفر ثبت‌شده یا پرداخت‌شده محسوب نمی‌شود.',
+      );
+    } catch (_) {
+      if (!mounted) return;
+      _showInfo('ذخیره انجام نشد', 'فضای ذخیره‌سازی گوشی در دسترس نیست. لطفاً دوباره تلاش کنید.');
+    }
   }
 
   void _showInfo(String title, String message) {
