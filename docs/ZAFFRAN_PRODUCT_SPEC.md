@@ -158,3 +158,7 @@ Adopt the AI Operations Plan in `docs/AI_OPERATIONS_PLAN.md`. AI should handle r
 ## Release gates
 
 No public launch until real-device tests, security review, fare/payment reconciliation, driver support operations, incident handling, legal/permit review, privacy terms and provider coverage are complete. Demo mode must be visibly labelled and must never simulate a real ride or payment as successful.
+
+
+## Network resilience
+The product is online-first and designed for domestic-network reachability, weak bandwidth and intermittent outages. See [NETWORK_RESILIENCE.md](NETWORK_RESILIENCE.md) for deployment, degraded-mode behavior and acceptance tests. Total network blackout cannot support live dispatch, payment verification or tracking.
