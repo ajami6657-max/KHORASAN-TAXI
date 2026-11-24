@@ -26,6 +26,7 @@ jobs:
         run: |
           cp mobile_src/pubspec.yaml build/zaffran_mobile/pubspec.yaml
           cp mobile_src/lib/main.dart build/zaffran_mobile/lib/main.dart
+          cp mobile_src/lib/map_picker_page.dart build/zaffran_mobile/lib/map_picker_page.dart
           mkdir -p build/zaffran_mobile/assets
           cp app/src/main/res/mipmap-nodpi/ic_launcher.jpg build/zaffran_mobile/assets/zaffran_icon.jpg
       - name: Resolve dependencies and generate launcher icons
